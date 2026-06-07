@@ -4,54 +4,62 @@ import { deepseekChatStream } from "@/lib/ai";
 import { error } from "@/lib/api-response";
 
 /**
- * 关键词检索相关文本块
+ * 中文关键词提取：二元组分词 + 标点分隔
  */
-async function findRelevantChunks(query: string, limit = 5) {
-  // 提取关键词（中英文分词简化版）
-  const keywords = query
-    .split(/[\s,，。？！、；：""''()（）]+/)
-    .filter((k) => k.length >= 2);
+function extractKeywords(query: string): string[] {
+  const keywords: string[] = [];
 
-  if (keywords.length === 0) {
-    // 无有效关键词，返回最近上传文档的前几个块
-    const recentDoc = await prisma.document.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: { filename: true, chunks: { take: limit, orderBy: { chunkIndex: "asc" } } },
-    });
-    if (!recentDoc) return [];
-    return recentDoc.chunks.map((c) => ({
-      content: c.content,
-      filename: recentDoc.filename,
-    }));
+  // 标点分隔提取长词
+  const segments = query.split(/[\s,，。？！、；：""''()（）]+/);
+  for (const seg of segments) {
+    if (seg.length >= 2) keywords.push(seg);
   }
 
-  // 一次性加载所有文档和块（MVP 数据量小，可行）
-  const docs = await prisma.document.findMany({
-    select: { filename: true, chunks: true },
-    take: 50,
+  // 中文二元组
+  const chineseOnly = query.replace(/[^一-鿿]/g, "");
+  for (let i = 0; i < chineseOnly.length - 1; i++) {
+    keywords.push(chineseOnly.substring(i, i + 2));
+  }
+
+  return [...new Set(keywords)];
+}
+
+/**
+ * 检索相关文本块，匹配失败时返回最近文档的全部块
+ */
+async function findRelevantChunks(query: string, limit = 20) {
+  const keywords = extractKeywords(query);
+
+  // 始终优先返回最近文档的块（兜底策略）
+  const recentDoc = await prisma.document.findFirst({
+    orderBy: { createdAt: "desc" },
+    select: { filename: true, chunks: { orderBy: { chunkIndex: "asc" } } },
   });
-
-  // 展开所有块并评分
-  interface ScoredChunk {
-    content: string;
-    filename: string;
-    score: number;
+  if (!recentDoc) return [];
+  if (recentDoc.chunks.length <= limit) {
+    return recentDoc.chunks.map((c) => ({ content: c.content, filename: recentDoc.filename }));
   }
-  const scored: ScoredChunk[] = [];
-  for (const doc of docs) {
-    for (const chunk of doc.chunks) {
-      const matchCount = keywords.filter((kw) => chunk.content.includes(kw)).length;
-      if (matchCount > 0) {
-        scored.push({ content: chunk.content, filename: doc.filename, score: matchCount });
-      }
+
+  // 有足够关键词时做匹配排序
+  if (keywords.length > 0) {
+    const scored = recentDoc.chunks.map((chunk) => ({
+      content: chunk.content,
+      filename: recentDoc.filename,
+      score: keywords.filter((kw) => chunk.content.includes(kw)).length,
+    }));
+    if (scored.some((s) => s.score > 0)) {
+      return scored
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+        .map(({ content, filename }) => ({ content, filename }));
     }
   }
 
-  // 取 Top-N
-  return scored
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((s) => ({ content: s.content, filename: s.filename }));
+  // 无匹配时返回前 limit 个块
+  return recentDoc.chunks.slice(0, limit).map((c) => ({
+    content: c.content,
+    filename: recentDoc.filename,
+  }));
 }
 
 export async function POST(request: Request) {
@@ -69,16 +77,12 @@ export async function POST(request: Request) {
       .join("\n\n---\n\n");
 
     // 构建 System Prompt
-    const systemPrompt = `你是一个专业的求职助手 AI。你正在帮助一位大四应届生准备求职。
-你的回答基于用户上传的资料，资料如下：
+    const systemPrompt = `你是一位资深职业规划顾问，正在帮助应届生分析求职方向。
 
+以下是该学生的简历资料：
 ${context || "（用户尚未上传任何资料）"}
 
-请遵守以下规则：
-1. 只基于上面的资料回答问题，不要编造信息
-2. 如果资料中没有相关信息，诚实地说"根据你上传的资料，暂时没有找到相关信息"
-3. 回答要简洁、准确、有帮助
-4. 使用中文回答`;
+请基于这份资料，提供专业、有帮助的分析。如果资料确实完全无法回答某个问题，说"资料中暂时没有涉及这方面信息"。否则，请尽力从资料中提取线索并给出有价值的建议。使用中文回答。`;
 
     // 流式返回
     const deepseekResponse = await deepseekChatStream(systemPrompt, query.trim());

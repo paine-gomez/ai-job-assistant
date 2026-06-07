@@ -1,25 +1,33 @@
 /**
  * OCR 服务 —— 用 Tesseract.js 识别图片中的文字
- * 适用于图片型 PDF（扫描件等）
+ * 通过 CDN 加载 Worker 和语言包，避免 Next.js 打包问题
  */
 import { createWorker } from "tesseract.js";
 
-let worker: Awaited<ReturnType<typeof createWorker>> | null = null;
+let workerPromise: ReturnType<typeof createWorker> | null = null;
 
 async function getWorker() {
-  if (!worker) {
-    worker = await createWorker("chi_sim+eng");
+  if (!workerPromise) {
+    workerPromise = createWorker("chi_sim+eng", 1, {
+      workerPath: "https://unpkg.com/tesseract.js@7/dist/worker.min.js",
+      langPath: "https://tessdata.maintained.org/4.0.0",
+    });
   }
-  return worker;
+  return workerPromise;
 }
 
 /**
  * 对图片 Buffer 进行 OCR 识别
  */
 export async function ocrImage(imageBuffer: Buffer): Promise<string> {
-  const w = await getWorker();
-  const { data } = await w.recognize(imageBuffer);
-  return data.text;
+  try {
+    const worker = await getWorker();
+    const { data } = await worker.recognize(imageBuffer);
+    return data.text;
+  } catch (e) {
+    console.error("OCR 识别失败:", e);
+    return "";
+  }
 }
 
 /**
@@ -36,10 +44,9 @@ export function extractImagesFromPDF(pdfBuffer: Buffer): Buffer[] {
 
   while ((match = streamRegex.exec(data)) !== null) {
     const streamContent = match[1];
-    // 去除末尾的 \r\n
     const cleanContent = streamContent.replace(/[\r\n]+$/, "");
 
-    // 尝试检测是否为 JPEG（以 FF D8 FF 开头）
+    // 检测是否为 JPEG（以 FF D8 FF 开头）
     const binaryContent = Buffer.from(cleanContent, "binary");
     if (
       binaryContent.length > 3 &&
@@ -52,25 +59,4 @@ export function extractImagesFromPDF(pdfBuffer: Buffer): Buffer[] {
   }
 
   return images;
-}
-
-/**
- * OCR 整个 PDF：提取图片 → OCR 每张 → 合并文字
- */
-export async function ocrPDF(pdfBuffer: Buffer): Promise<string> {
-  const images = extractImagesFromPDF(pdfBuffer);
-
-  if (images.length === 0) {
-    return "";
-  }
-
-  const texts: string[] = [];
-  for (let i = 0; i < images.length; i++) {
-    const text = await ocrImage(images[i]);
-    if (text.trim()) {
-      texts.push(text);
-    }
-  }
-
-  return texts.join("\n\n--- 第 页 ---\n\n");
 }
