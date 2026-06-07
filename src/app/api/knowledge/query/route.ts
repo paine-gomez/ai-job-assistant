@@ -39,11 +39,12 @@ async function findRelevantChunks(query: string, limit = 20) {
 
   if (docs.length === 0) return [];
 
-  const allChunks = docs.flatMap((doc) =>
-    doc.chunks.map((chunk) => ({
-      content: chunk.content,
-      filename: doc.filename,
-    }))
+  const allChunks = docs.flatMap(
+    (doc: { filename: string; chunks: { content: string }[] }) =>
+      doc.chunks.map((chunk: { content: string }) => ({
+        content: chunk.content,
+        filename: doc.filename,
+      }))
   );
 
   if (allChunks.length <= limit) return allChunks;
