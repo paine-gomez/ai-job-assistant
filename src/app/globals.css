@@ -49,6 +49,8 @@
 }
 
 :root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  --font-geist-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -123,10 +125,99 @@
   }
   body {
     @apply bg-background text-foreground;
+    background:
+      radial-gradient(circle at 14% 12%, rgba(0, 0, 0, 0.055), transparent 24rem),
+      linear-gradient(180deg, #ffffff 0%, #f7f7f4 42%, #ffffff 100%);
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
   }
+}
+
+.font-editorial {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.editorial-shell {
+  min-height: calc(100vh - 3.5rem);
+  background:
+    radial-gradient(circle at 85% 10%, rgba(0, 0, 0, 0.045), transparent 20rem),
+    linear-gradient(180deg, #f8f8f5 0%, #ffffff 72%);
+}
+
+.editorial-card {
+  border: 1px solid #e6e6e6;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.06);
+}
+
+.editorial-label {
+  color: #9c9c9c;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.editorial-link {
+  position: relative;
+  color: #171717;
+  transition: color 180ms ease;
+}
+
+.editorial-link::after {
+  position: absolute;
+  left: 0;
+  bottom: -0.18rem;
+  height: 1px;
+  width: 100%;
+  content: "";
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 220ms ease;
+}
+
+.editorial-link:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+.reveal-up {
+  animation: reveal-up 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.reveal-delay-1 {
+  animation-delay: 0.12s;
+}
+
+.reveal-delay-2 {
+  animation-delay: 0.24s;
+}
+
+.reveal-delay-3 {
+  animation-delay: 0.36s;
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slow-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(0, -14px, 0) scale(1.035); }
+}
+
+.slow-drift {
+  animation: slow-drift 14s ease-in-out infinite;
 }
 
 /* AI 思考动画 — 跳动三个点 */

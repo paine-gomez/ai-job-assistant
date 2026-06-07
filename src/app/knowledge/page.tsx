@@ -19,7 +19,7 @@ import ReactMarkdown from "react-markdown";
 import { FileDropzone } from "@/components/shared/file-dropzone";
 import { FileCard } from "@/components/shared/file-card";
 import { BouncingDots } from "@/components/shared/bouncing-dots";
-import { DOCUMENT_ACCEPT, ALL_EXTENSIONS } from "@/lib/file-utils";
+import { ALL_EXTENSIONS } from "@/lib/file-utils";
 
 interface DocItem {
   id: string;
@@ -42,7 +42,7 @@ export default function KnowledgePage() {
     {
       id: "welcome",
       role: "assistant",
-      content: "👋 你好！上传求职相关资料后，就可以向我提问了。我会基于你上传的资料来回答。",
+      content: "你好。上传简历、行业报告或求职资料后，我会基于你的资料回答问题，并尽量标明信息来源。",
     },
   ]);
   const [input, setInput] = useState("");
@@ -62,7 +62,9 @@ export default function KnowledgePage() {
   }, []);
 
   useEffect(() => {
-    loadDocuments();
+    queueMicrotask(() => {
+      void loadDocuments();
+    });
   }, [loadDocuments]);
 
   useEffect(() => {
@@ -176,114 +178,140 @@ export default function KnowledgePage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] max-w-5xl mx-auto">
-      {/* 左侧栏 - 文档管理 */}
-      <aside className="hidden md:flex w-64 flex-col border-r border-white/10 p-4 gap-4">
-        <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider">
-          知识库文档
-        </h2>
-
-        <FileDropzone
-          accept={ALL_EXTENSIONS}
-          maxSize={5 * 1024 * 1024}
-          onSelect={handleUpload}
-          loading={uploading}
-          label="点击上传文件"
-          hint="PDF / DOCX / TXT"
-          className="p-6"
-        />
-
-        {documents.length === 0 && (
-          <p className="text-xs text-zinc-600 text-center py-4">
-            还没有上传任何文档
+    <div className="editorial-shell px-4 py-10">
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-8 border-b border-black/10 pb-6">
+          <p className="editorial-label mb-3">Research Notes</p>
+          <h1 className="font-editorial text-5xl leading-none tracking-tight text-black md:text-7xl">
+            Knowledge Base
+          </h1>
+          <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-500">
+            Ask questions across your resume, reports and job materials. The interface is designed like a quiet research desk.
           </p>
-        )}
-        <div className="flex flex-col gap-2 overflow-auto">
-          {documents.map((doc) => (
-            <FileCard
-              key={doc.id}
-              variant="compact"
-              file={{ name: doc.filename, size: doc.fileSize, type: doc.fileType.toUpperCase() }}
-              onRemove={() => setDeleteTarget(doc)}
-            />
-          ))}
-        </div>
+        </header>
 
-        <Badge variant="outline" className="text-xs text-zinc-600 border-zinc-800 self-start">
-          共 {documents.length} 份文档
-        </Badge>
-      </aside>
-
-      {/* 右侧 - 对话区 */}
-      <div className="flex flex-1 flex-col min-w-0">
-        <ScrollArea className="flex-1 px-4 py-4">
-          <div className="space-y-4 max-w-2xl mx-auto">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div
-                  className={`max-w-[85%] rounded-xl px-4 py-3 text-sm ${
-                    msg.role === "user"
-                      ? "bg-indigo-600 text-white"
-                      : "bg-zinc-900 text-zinc-200"
-                  }`}
-                >
-                  {msg.role === "user" ? (
-                    <p>{msg.content}</p>
-                  ) : msg.content ? (
-                    <div className="prose prose-sm prose-invert max-w-none">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                      {loading && (
-                        <span className="inline-block w-2 h-4 ml-0.5 bg-indigo-400 animate-blink-cursor align-text-bottom" />
-                      )}
-                    </div>
-                  ) : loading ? (
-                    <BouncingDots />
-                  ) : null}
-                </div>
+        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+          <aside className="editorial-card reveal-up rounded-[28px] p-5">
+            <div className="mb-5 flex items-end justify-between border-b border-black/10 pb-4">
+              <div>
+                <p className="editorial-label">Document Archive</p>
+                <h2 className="mt-2 text-xl font-medium text-black">资料库</h2>
               </div>
-            ))}
-            <div ref={scrollRef} />
-          </div>
-        </ScrollArea>
+              <Badge variant="outline" className="rounded-full border-black/10 text-zinc-500">
+                {documents.length} files
+              </Badge>
+            </div>
 
-        {/* 输入框 */}
-        <div className="border-t border-white/10 p-4">
-          <div className="flex max-w-2xl mx-auto gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder={documents.length === 0 ? "请先上传文档..." : "输入问题..."}
-              disabled={loading}
-              className="flex-1 bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-600"
-              aria-label="输入问题"
+            <FileDropzone
+              accept={ALL_EXTENSIONS}
+              maxSize={5 * 1024 * 1024}
+              onSelect={handleUpload}
+              loading={uploading}
+              label="上传求职资料"
+              hint="PDF / DOCX / TXT · 最大 5MB"
+              className="p-6"
             />
-            <Button
-              onClick={handleSend}
-              disabled={loading || !input.trim()}
-              size="icon"
-              className="bg-indigo-600 hover:bg-indigo-500"
-              aria-label="发送消息"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+
+            <div className="mt-5 space-y-2">
+              {documents.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-black/10 p-5 text-center text-xs leading-6 text-zinc-500">
+                  还没有上传任何文档。先放入简历或岗位资料，再开始提问。
+                </div>
               ) : (
-                <Send className="h-4 w-4" />
+                documents.map((doc) => (
+                  <FileCard
+                    key={doc.id}
+                    variant="compact"
+                    file={{ name: doc.filename, size: doc.fileSize, type: doc.fileType.toUpperCase() }}
+                    onRemove={() => setDeleteTarget(doc)}
+                  />
+                ))
               )}
-            </Button>
-          </div>
+            </div>
+          </aside>
+
+          <section className="editorial-card reveal-up reveal-delay-1 flex min-h-[680px] flex-col rounded-[28px]">
+            <div className="border-b border-black/10 px-5 py-4 md:px-7">
+              <p className="editorial-label">AI Conversation</p>
+              <h2 className="mt-2 text-xl font-medium text-black">基于资料的求职问答</h2>
+            </div>
+
+            <ScrollArea className="flex-1 px-5 py-6 md:px-7">
+              <div className="mx-auto max-w-3xl space-y-5">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`grid gap-3 ${
+                      msg.role === "user" ? "grid-cols-[1fr_auto]" : "grid-cols-[auto_1fr]"
+                    }`}
+                  >
+                    {msg.role === "assistant" && (
+                      <span className="mt-1 text-xs uppercase tracking-[0.16em] text-zinc-400">AI</span>
+                    )}
+                    <div
+                      className={`rounded-3xl border px-5 py-4 text-sm leading-7 ${
+                        msg.role === "user"
+                          ? "border-black bg-black text-white"
+                          : "border-black/10 bg-[#fafafa] text-zinc-800"
+                      }`}
+                    >
+                      {msg.role === "user" ? (
+                        <p>{msg.content}</p>
+                      ) : msg.content ? (
+                        <div className="prose prose-sm max-w-none prose-p:leading-7 prose-headings:text-black prose-a:text-black">
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          {loading && (
+                            <span className="inline-block h-4 w-2 bg-black align-text-bottom animate-blink-cursor" />
+                          )}
+                        </div>
+                      ) : loading ? (
+                        <BouncingDots />
+                      ) : null}
+                    </div>
+                    {msg.role === "user" && (
+                      <span className="mt-1 text-xs uppercase tracking-[0.16em] text-zinc-400">You</span>
+                    )}
+                  </div>
+                ))}
+                <div ref={scrollRef} />
+              </div>
+            </ScrollArea>
+
+            <div className="border-t border-black/10 p-4 md:p-5">
+              <div className="mx-auto flex max-w-3xl gap-2 rounded-full border border-black/10 bg-white p-1.5">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                  placeholder={documents.length === 0 ? "先上传文档，再开始提问..." : "Ask a question from your materials..."}
+                  disabled={loading}
+                  className="h-10 flex-1 border-0 bg-transparent px-4 text-black placeholder:text-zinc-400 focus-visible:ring-0"
+                  aria-label="输入问题"
+                />
+                <Button
+                  onClick={handleSend}
+                  disabled={loading || !input.trim()}
+                  size="icon"
+                  className="h-10 w-10 rounded-full bg-black text-white hover:bg-zinc-800"
+                  aria-label="发送消息"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
 
-      {/* 删除确认弹窗 */}
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
-        <DialogContent className="border-zinc-800 bg-zinc-950 text-white" aria-describedby="delete-dialog-desc">
+        <DialogContent className="border-black/10 bg-white text-black" aria-describedby="delete-dialog-desc">
           <DialogHeader>
             <DialogTitle>确认删除</DialogTitle>
-            <DialogDescription id="delete-dialog-desc" className="text-zinc-400">
+            <DialogDescription id="delete-dialog-desc" className="text-zinc-500">
               确定要删除「{deleteTarget?.filename}」吗？此操作不可撤销。
             </DialogDescription>
           </DialogHeader>

@@ -10,7 +10,7 @@ interface BouncingDotsProps {
 
 const sizeMap = { sm: "w-1.5 h-1.5", md: "w-2 h-2" };
 
-export function BouncingDots({ size = "md", color = "bg-indigo-400" }: BouncingDotsProps) {
+export function BouncingDots({ size = "md", color = "bg-black" }: BouncingDotsProps) {
   const dotSize = sizeMap[size];
 
   return (

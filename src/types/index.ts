@@ -44,3 +44,29 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
 }
+
+// ─── 面试题生成结果 ───
+export interface InterviewQuestion {
+  id: string;
+  category: "resume" | "competency" | "behavioral";
+  question: string;
+  intent: string;
+  approach: string;
+}
+
+export interface InterviewResult {
+  role: string;
+  categories: {
+    resume: InterviewQuestion[];
+    competency: InterviewQuestion[];
+    behavioral: InterviewQuestion[];
+  };
+}
+
+// ─── 自我介绍生成结果 ───
+export interface IntroResult {
+  role: string;
+  shortVersion: string;
+  longVersion: string;
+  highlights: string[];
+}

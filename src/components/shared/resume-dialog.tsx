@@ -36,11 +36,15 @@ export function ResumeDialog({ open, onOpenChange }: ResumeDialogProps) {
   // 弹窗打开时同步 localStorage 内容到本地编辑态
   useEffect(() => {
     if (open && isLoaded && !initialized) {
-      setText(resume);
-      setInitialized(true);
+      queueMicrotask(() => {
+        setText(resume);
+        setInitialized(true);
+      });
     }
     if (!open) {
-      setInitialized(false);
+      queueMicrotask(() => {
+        setInitialized(false);
+      });
     }
   }, [open, isLoaded, resume, initialized]);
 
@@ -87,17 +91,17 @@ export function ResumeDialog({ open, onOpenChange }: ResumeDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="border-zinc-800 bg-zinc-950 text-white max-w-2xl"
+        className="flex max-h-[90vh] max-w-2xl flex-col overflow-hidden rounded-[28px] border-black/10 bg-white text-black"
         aria-describedby="resume-dialog-desc"
       >
         <DialogHeader>
           <DialogTitle>我的简历</DialogTitle>
-          <DialogDescription id="resume-dialog-desc" className="text-zinc-400">
+          <DialogDescription id="resume-dialog-desc" className="text-zinc-500">
             保存后，打开匹配页时会自动填入，无需每次重复粘贴。
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-[2px]">
           <FileDropzone
             accept={ALL_EXTENSIONS}
             maxSize={10 * 1024 * 1024}
@@ -113,7 +117,7 @@ export function ResumeDialog({ open, onOpenChange }: ResumeDialogProps) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             rows={10}
-            className="bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-600 resize-none"
+            className="resize-none rounded-3xl border-black/10 bg-[#fafafa] p-5 text-black placeholder:text-zinc-400 focus-visible:border-black focus-visible:ring-0"
             aria-label="简历内容"
           />
         </div>
@@ -123,7 +127,7 @@ export function ResumeDialog({ open, onOpenChange }: ResumeDialogProps) {
             variant="ghost"
             onClick={handleClear}
             disabled={!hasResume}
-            className="text-zinc-500 hover:text-red-400"
+            className="text-zinc-500 hover:text-black"
           >
             清除
           </Button>
@@ -131,7 +135,7 @@ export function ResumeDialog({ open, onOpenChange }: ResumeDialogProps) {
             <Button variant="outline" onClick={handleCancel}>
               取消
             </Button>
-            <Button onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-500">
+            <Button onClick={handleSave} className="bg-black text-white hover:bg-zinc-800">
               保存
             </Button>
           </div>

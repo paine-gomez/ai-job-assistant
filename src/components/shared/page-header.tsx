@@ -8,9 +8,12 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description }: PageHeaderProps) {
   return (
-    <header className="mb-6">
-      <h1 className="text-2xl font-bold text-white">{title}</h1>
-      {description && <p className="mt-1.5 text-sm text-zinc-400">{description}</p>}
+    <header className="mb-8 border-b border-black/10 pb-6">
+      <p className="editorial-label mb-3">AI Job Assistant</p>
+      <h1 className="font-editorial text-5xl leading-none tracking-tight text-black md:text-7xl">
+        {title}
+      </h1>
+      {description && <p className="mt-4 max-w-2xl text-sm leading-6 text-zinc-500">{description}</p>}
     </header>
   );
 }

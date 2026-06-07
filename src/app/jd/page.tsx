@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ArrowRight } from "lucide-react";
@@ -72,145 +71,161 @@ export default function JDPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
-      <PageHeader
-        title="JD 分析"
-        description="粘贴或上传招聘 JD，AI 自动提取结构化信息"
-      />
-
-      {/* 输入方式切换 */}
-      <div className="flex gap-1 p-1 rounded-lg bg-zinc-900 w-fit mb-4" role="tablist" aria-label="输入方式">
-        <button
-          role="tab"
-          aria-selected={inputMode === "paste"}
-          onClick={() => { setInputMode("paste"); setResult(null); }}
-          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-            inputMode === "paste" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          粘贴文本
-        </button>
-        <button
-          role="tab"
-          aria-selected={inputMode === "upload"}
-          onClick={() => { setInputMode("upload"); setResult(null); }}
-          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-            inputMode === "upload" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"
-          }`}
-        >
-          上传文件
-        </button>
-      </div>
-
-      {/* 粘贴模式 */}
-      {inputMode === "paste" && (
-        <Textarea
-          placeholder={"在这里粘贴招聘 JD 内容...\n\n例如复制拉勾/BOSS直聘上的职位描述"}
-          value={jdText}
-          onChange={(e) => { setJdText(e.target.value); setResult(null); }}
-          rows={8}
-          className="bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-600 resize-none mb-4"
-          aria-label="JD 文本内容"
+    <div className="editorial-shell px-4 py-10">
+      <div className="mx-auto max-w-6xl">
+        <PageHeader
+          title="JD Analysis"
+          description="Turn long job descriptions into structured product-ready insights for role understanding and resume matching."
         />
-      )}
 
-      {/* 上传模式 */}
-      {inputMode === "upload" && (
-        <div className="mb-4">
-          {jdFile ? (
-            <FileCard
-              file={{ name: jdFile.name, size: jdFile.size }}
-              onRemove={() => setJdFile(null)}
-            />
-          ) : (
-            <FileDropzone
-              accept={ALL_EXTENSIONS}
-              maxSize={10 * 1024 * 1024}
-              onSelect={(file) => { setJdFile(file); setResult(null); }}
-              label="点击上传 JD 文件"
-              hint="支持 PDF、DOCX、TXT、PNG、JPG 等格式 · 最大 10MB"
-            />
-          )}
-        </div>
-      )}
-
-      <LoadingButton
-        loading={loading}
-        loadingText="AI 分析中..."
-        icon={undefined}
-        onClick={handleAnalyze}
-        disabled={
-          (inputMode === "paste" && !jdText.trim()) ||
-          (inputMode === "upload" && !jdFile)
-        }
-        className="w-full bg-indigo-600 hover:bg-indigo-500 mb-6"
-      >
-        开始分析
-      </LoadingButton>
-
-      {result && (
-        <>
-          <Card className="border-zinc-800 bg-zinc-900/50 p-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <section className="editorial-card reveal-up rounded-[28px] p-5 md:p-7">
+            <div className="mb-6 flex items-center justify-between border-b border-black/10 pb-4">
               <div>
-                <span className="text-zinc-500">🏢 公司</span>
-                <p className="text-white mt-1">{result.company}</p>
+                <p className="editorial-label">Source</p>
+                <h2 className="mt-2 text-xl font-medium text-black">岗位原文</h2>
               </div>
-              <div>
-                <span className="text-zinc-500">💼 岗位</span>
-                <p className="text-white mt-1">{result.role}</p>
-              </div>
-              <div>
-                <span className="text-zinc-500">💰 薪资</span>
-                <p className="text-white mt-1">{result.salary}</p>
-              </div>
-              <div>
-                <span className="text-zinc-500">🎓 学历</span>
-                <p className="text-white mt-1">{result.education}</p>
-              </div>
-              <div className="col-span-2">
-                <span className="text-zinc-500">📅 经验要求</span>
-                <p className="text-white mt-1">{result.experience}</p>
-              </div>
-            </div>
-
-            <div>
-              <span className="text-sm text-zinc-500">技能要求</span>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {result.skills.map((s) => <Badge key={s} variant="secondary">{s}</Badge>)}
-              </div>
-            </div>
-
-            <div>
-              <span className="text-sm text-zinc-500">📝 岗位总结</span>
-              <p className="text-sm text-zinc-300 mt-1 leading-relaxed">{result.summary}</p>
-            </div>
-
-            <div>
-              <span className="text-sm text-zinc-500">🏷️ 关键词</span>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {result.keywords.map((k) => (
-                  <Badge key={k} variant="outline" className="border-indigo-500/30 text-indigo-400">{k}</Badge>
+              <div className="flex rounded-full border border-black/10 bg-[#f3f3f3] p-1" role="tablist" aria-label="输入方式">
+                {(["paste", "upload"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    role="tab"
+                    aria-selected={inputMode === mode}
+                    onClick={() => {
+                      setInputMode(mode);
+                      setResult(null);
+                    }}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      inputMode === mode ? "bg-black text-white" : "text-zinc-500 hover:text-black"
+                    }`}
+                  >
+                    {mode === "paste" ? "粘贴文本" : "上传文件"}
+                  </button>
                 ))}
               </div>
             </div>
-          </Card>
 
-          {/* 工作流连线 */}
-          <div className="mt-4 p-4 rounded-lg border border-indigo-500/20 bg-indigo-500/5 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-white font-medium">下一步：用这份 JD 匹配你的简历</p>
-              <p className="text-xs text-zinc-500 mt-0.5">AI 从四个维度评分，指出优势和差距</p>
-            </div>
-            <Link
-              href={`/match?jd=${encodeURIComponent(jdText || "")}`}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-medium text-white transition-colors shrink-0"
+            {inputMode === "paste" ? (
+              <Textarea
+                placeholder={"Paste a job description here...\n\n例如：AI 产品经理 / 岗位职责 / 任职要求 / 薪资范围"}
+                value={jdText}
+                onChange={(e) => {
+                  setJdText(e.target.value);
+                  setResult(null);
+                }}
+                rows={16}
+                className="min-h-[390px] resize-none rounded-3xl border-black/10 bg-[#fafafa] p-5 text-sm leading-7 text-black placeholder:text-zinc-400 focus-visible:border-black focus-visible:ring-0"
+                aria-label="JD 文本内容"
+              />
+            ) : (
+              <div className="min-h-[390px]">
+                {jdFile ? (
+                  <FileCard
+                    file={{ name: jdFile.name, size: jdFile.size }}
+                    onRemove={() => setJdFile(null)}
+                  />
+                ) : (
+                  <FileDropzone
+                    accept={ALL_EXTENSIONS}
+                    maxSize={10 * 1024 * 1024}
+                    onSelect={(file) => {
+                      setJdFile(file);
+                      setResult(null);
+                    }}
+                    label="上传 JD 文件"
+                    hint="PDF、DOCX、TXT、PNG、JPG · 最大 10MB"
+                  />
+                )}
+              </div>
+            )}
+
+            <LoadingButton
+              loading={loading}
+              loadingText="AI 分析中..."
+              icon={undefined}
+              onClick={handleAnalyze}
+              disabled={(inputMode === "paste" && !jdText.trim()) || (inputMode === "upload" && !jdFile)}
+              className="mt-5 h-11 w-full rounded-full bg-black text-white hover:bg-zinc-800"
             >
-              开始匹配 <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-        </>
-      )}
+              Analyze JD
+            </LoadingButton>
+          </section>
+
+          <section className="editorial-card reveal-up reveal-delay-1 rounded-[28px] p-5 md:p-7">
+            <div className="mb-6 border-b border-black/10 pb-4">
+              <p className="editorial-label">Analysis</p>
+              <h2 className="mt-2 text-xl font-medium text-black">结构化岗位洞察</h2>
+            </div>
+
+            {!result ? (
+              <div className="flex min-h-[470px] flex-col justify-between rounded-3xl border border-dashed border-black/15 bg-[#fafafa] p-6">
+                <p className="max-w-sm text-sm leading-7 text-zinc-500">
+                  分析完成后，这里会生成公司、岗位、薪资、技能、职责和总结。展示方式会像一份清晰的岗位分析稿，而不是普通工具输出。
+                </p>
+                <p className="font-editorial text-7xl text-black/10">Report</p>
+              </div>
+            ) : (
+              <div className="space-y-7">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                  {[
+                    ["Company", result.company],
+                    ["Role", result.role],
+                    ["Salary", result.salary],
+                    ["Education", result.education],
+                    ["Experience", result.experience],
+                  ].map(([label, value]) => (
+                    <div key={label} className={label === "Experience" ? "col-span-2" : ""}>
+                      <p className="editorial-label">{label}</p>
+                      <p className="mt-2 text-sm leading-6 text-black">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="border-t border-black/10 pt-6">
+                  <p className="editorial-label">Skills</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {result.skills.map((skill) => (
+                      <Badge key={skill} variant="outline" className="rounded-full border-black/10 bg-white px-3 py-1 text-zinc-700">
+                        {skill}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="border-t border-black/10 pt-6">
+                  <p className="editorial-label">Responsibilities</p>
+                  <ul className="mt-3 space-y-3">
+                    {result.responsibilities.map((item, index) => (
+                      <li key={`${item}-${index}`} className="grid grid-cols-[32px_1fr] text-sm leading-6 text-zinc-700">
+                        <span className="text-zinc-400">{String(index + 1).padStart(2, "0")}</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="border-t border-black/10 pt-6">
+                  <p className="editorial-label">Summary</p>
+                  <p className="mt-3 text-lg leading-8 text-black">{result.summary}</p>
+                </div>
+
+                <div className="flex flex-col gap-4 rounded-3xl border border-black/10 bg-[#f7f7f4] p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-black">下一步：生成 Career Fit Report</p>
+                    <p className="mt-1 text-xs text-zinc-500">把这份 JD 带入简历匹配工作流。</p>
+                  </div>
+                  <Link
+                    href={`/match?jd=${encodeURIComponent(jdText || "")}`}
+                    className="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800"
+                  >
+                    开始匹配 <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

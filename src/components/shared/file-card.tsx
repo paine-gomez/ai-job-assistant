@@ -30,14 +30,14 @@ export function FileCard({ file, onRemove, variant = "default", className }: Fil
     return (
       <div
         className={cn(
-          "flex items-center gap-2 rounded-lg bg-zinc-900 p-2 group",
+          "group flex items-center gap-2 rounded-xl border border-black/10 bg-white p-2.5",
           className
         )}
       >
         <FileText className="h-4 w-4 text-zinc-500 shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-zinc-300 truncate">{file.name}</p>
-          <p className="text-xs text-zinc-600">
+          <p className="truncate text-xs font-medium text-black">{file.name}</p>
+          <p className="text-xs text-zinc-500">
             {(file.type ?? getFileExtension(file.name))} · {formatFileSize(file.size)}
           </p>
         </div>
@@ -45,7 +45,7 @@ export function FileCard({ file, onRemove, variant = "default", className }: Fil
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7 opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400"
+            className="h-7 w-7 opacity-0 text-zinc-500 hover:text-black group-hover:opacity-100"
             onClick={onRemove}
             aria-label={`删除 ${file.name}`}
           >
@@ -60,13 +60,13 @@ export function FileCard({ file, onRemove, variant = "default", className }: Fil
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-4",
+        "flex items-center gap-3 rounded-2xl border border-black/10 bg-white p-4",
         className
       )}
     >
-      <FileText className="h-8 w-8 text-indigo-400 shrink-0" />
+      <FileText className="h-8 w-8 text-black shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-white truncate">{file.name}</p>
+        <p className="text-sm font-medium text-black truncate">{file.name}</p>
         <p className="text-xs text-zinc-500">
           {formatFileSize(file.size)} · {getFileExtension(file.name)}
         </p>

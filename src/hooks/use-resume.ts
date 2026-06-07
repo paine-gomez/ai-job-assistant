@@ -50,16 +50,27 @@ export function useResume() {
 
   // 首次挂载时从 localStorage 恢复
   useEffect(() => {
-    try {
-      const stored = readResume();
-      if (stored) {
-        setResume(stored.text);
-        setHasResume(true);
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+
+      try {
+        const stored = readResume();
+        if (stored) {
+          setResume(stored.text);
+          setHasResume(true);
+        }
+      } catch {
+        // localStorage 不可用（SSR/隐私模式），静默降级
       }
-    } catch {
-      // localStorage 不可用（SSR/隐私模式），静默降级
-    }
-    setIsLoaded(true);
+
+      if (!cancelled) setIsLoaded(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const saveResume = useCallback((text: string) => {

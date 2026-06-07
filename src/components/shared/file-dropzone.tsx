@@ -96,21 +96,21 @@ export function FileDropzone({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        "flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-10 text-center cursor-pointer transition-colors",
+        "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-3xl border border-dashed p-10 text-center transition-colors",
         isDragOver
-          ? "border-indigo-400 bg-indigo-500/10"
-          : "border-zinc-700 hover:border-indigo-500/50",
+          ? "border-black bg-zinc-100"
+          : "border-black/20 bg-white hover:border-black",
         disabled && "opacity-50 cursor-not-allowed",
         className
       )}
     >
       {loading ? (
-        <Loader2 className="h-10 w-10 text-indigo-400 animate-spin" />
+        <Loader2 className="h-10 w-10 text-black animate-spin" />
       ) : (
-        <Upload className="h-10 w-10 text-zinc-500" />
+        <Upload className="h-10 w-10 text-zinc-400" />
       )}
       <div>
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm font-medium text-black">
           {loading ? "处理中..." : label}
         </p>
         {hint && <p className="text-xs text-zinc-600 mt-1">{hint}</p>}

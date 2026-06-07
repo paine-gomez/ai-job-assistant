@@ -6,10 +6,11 @@
  * - aria-busy 通知屏幕阅读器
  * - 透传所有原生 Button props
  */
-import { Button, type ButtonProps } from "@/components/ui/button";
+import type { ComponentProps } from "react";
+import { Button } from "@/components/ui/button";
 import { Loader2, type LucideIcon } from "lucide-react";
 
-interface LoadingButtonProps extends ButtonProps {
+interface LoadingButtonProps extends ComponentProps<typeof Button> {
   loading: boolean;
   loadingText?: string;
   icon?: LucideIcon;
