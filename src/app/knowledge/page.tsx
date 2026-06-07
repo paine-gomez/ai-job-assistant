@@ -156,19 +156,28 @@ export default function KnowledgePage() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let content = "";
+      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        try {
-          const lines = chunk.split("\n").filter((l) => l.startsWith("0:"));
-          for (const line of lines) {
-            const text = JSON.parse(line.slice(2));
-            if (text) content += text;
+        buffer += decoder.decode(value, { stream: true });
+
+        // 解析 DeepSeek SSE 格式: data: {"choices":[{"delta":{"content":"..."}}]}
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // 保留未完成的行
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6).trim();
+          if (data === "[DONE]") continue;
+          try {
+            const json = JSON.parse(data);
+            const delta = json.choices?.[0]?.delta?.content;
+            if (delta) content += delta;
+          } catch {
+            // 忽略解析失败的行
           }
-        } catch {
-          content += chunk;
         }
         setMessages((prev) =>
           prev.map((m) => (m.id === aiMsg.id ? { ...m, content } : m))

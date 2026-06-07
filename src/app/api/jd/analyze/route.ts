@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { model } from "@/lib/ai";
-import { generateText } from "ai";
+import { deepseekChat } from "@/lib/ai";
 import { success, error } from "@/lib/api-response";
 
 const JD_ANALYSIS_PROMPT = `你是一位资深的 HR 和职业顾问。请分析以下招聘 JD，提取关键信息。
@@ -38,22 +37,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const { text } = await generateText({
-      model,
-      system: JD_ANALYSIS_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `请分析以下 JD：\n\n${jdText.trim()}`,
-        },
-      ],
-      temperature: 0.1, // 降低随机性，确保稳定输出
-    });
+    const text = await deepseekChat(
+      JD_ANALYSIS_PROMPT,
+      `请分析以下 JD：\n\n${jdText.trim()}`,
+      { temperature: 0.1 }
+    );
 
     // 解析 AI 返回的 JSON
     let result;
     try {
-      // 处理可能的 markdown 代码块包裹
       const jsonStr = text
         .replace(/^```json\s*/i, "")
         .replace(/^```\s*/i, "")
@@ -61,7 +53,6 @@ export async function POST(request: Request) {
         .trim();
       result = JSON.parse(jsonStr);
     } catch {
-      // JSON 解析失败，返回原始文本
       return NextResponse.json(
         error("AI 返回格式异常，请重试"),
         { status: 500 }

@@ -1,13 +1,63 @@
-import { createOpenAI } from "@ai-sdk/openai";
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY!;
+const DEEPSEEK_BASE = "https://api.deepseek.com/v1";
 
-// 使用 DeepSeek API（兼容 OpenAI 接口）
-const deepseek = createOpenAI({
-  baseURL: "https://api.deepseek.com/v1",
-  apiKey: process.env.DEEPSEEK_API_KEY!,
-});
+/**
+ * 调用 DeepSeek Chat API（非流式）
+ */
+export async function deepseekChat(
+  systemPrompt: string,
+  userMessage: string,
+  options?: { temperature?: number; maxTokens?: number }
+): Promise<string> {
+  const res = await fetch(`${DEEPSEEK_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      temperature: options?.temperature ?? 0.7,
+      max_tokens: options?.maxTokens ?? 4096,
+    }),
+  });
 
-// 默认模型：DeepSeek Chat（性价比最高）
-export const model = deepseek("deepseek-chat");
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`DeepSeek API 错误 (${res.status}): ${err}`);
+  }
 
-// 备用：带 reasoning 的模型（用于复杂匹配分析）
-export const reasoningModel = deepseek("deepseek-reasoner");
+  const json = await res.json();
+  return json.choices[0]?.message?.content || "";
+}
+
+/**
+ * 调用 DeepSeek Chat API（流式）
+ * 返回 ReadableStream，每块为文本字符串
+ */
+export function deepseekChatStream(
+  systemPrompt: string,
+  userMessage: string
+): Promise<Response> {
+  return fetch(`${DEEPSEEK_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      temperature: 0.7,
+      max_tokens: 4096,
+      stream: true,
+    }),
+  });
+}

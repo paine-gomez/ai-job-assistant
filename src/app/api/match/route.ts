@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { model } from "@/lib/ai";
-import { generateText } from "ai";
+import { deepseekChat } from "@/lib/ai";
 import { success, error } from "@/lib/api-response";
 
 const MATCH_PROMPT = `你是一位资深的职业规划顾问和 HR 专家。你需要评估一位求职者的简历与目标岗位 JD 的匹配程度。
@@ -57,12 +56,7 @@ ${jdText.trim()}
 
 请对以上简历和 JD 进行匹配分析。`;
 
-    const { text } = await generateText({
-      model,
-      system: MATCH_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
-      temperature: 0.3,
-    });
+    const text = await deepseekChat(MATCH_PROMPT, userMessage, { temperature: 0.3 });
 
     // 解析 JSON
     let result;

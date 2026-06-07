@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { model } from "@/lib/ai";
-import { streamText } from "ai";
+import { deepseekChatStream } from "@/lib/ai";
 import { error } from "@/lib/api-response";
 
 /**
@@ -82,13 +81,21 @@ ${context || "（用户尚未上传任何资料）"}
 4. 使用中文回答`;
 
     // 流式返回
-    const result = streamText({
-      model,
-      system: systemPrompt,
-      messages: [{ role: "user", content: query.trim() }],
-    });
+    const deepseekResponse = await deepseekChatStream(systemPrompt, query.trim());
 
-    return result.toTextStreamResponse();
+    if (!deepseekResponse.ok) {
+      const errText = await deepseekResponse.text();
+      return NextResponse.json(error(`AI 服务异常: ${errText}`), { status: 502 });
+    }
+
+    // 将 DeepSeek 的 SSE 流转发给前端
+    return new Response(deepseekResponse.body, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
   } catch (e) {
     console.error("知识库问答失败:", e);
     return NextResponse.json(
