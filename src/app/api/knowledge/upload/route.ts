@@ -1,7 +1,28 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { parseDocument, chunkText } from "@/lib/document-parser";
+import { chunkText } from "@/lib/document-parser";
 import { success, error } from "@/lib/api-response";
+
+// pdf-parse v1 直接导出函数，mammoth 是 CJS 模块
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const mammoth = require("mammoth") as { extractRawText: (opts: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }> };
+
+async function parseFileContent(buffer: ArrayBuffer, fileType: string): Promise<string> {
+  switch (fileType) {
+    case "pdf":
+      return (await pdfParse(Buffer.from(buffer))).text;
+    case "docx":
+    case "doc":
+      return (await mammoth.extractRawText({ arrayBuffer: buffer })).value;
+    case "txt":
+    case "text":
+      return new TextDecoder("utf-8").decode(buffer).trim();
+    default:
+      throw new Error(`不支持的文件格式: ${fileType}`);
+  }
+}
 
 const ALLOWED_TYPES = ["pdf", "docx", "doc", "txt"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -35,7 +56,7 @@ export async function POST(request: Request) {
     // 解析文件
     const buffer = await file.arrayBuffer();
     const parsedExt = ext === "doc" ? "docx" : ext;
-    const content = await parseDocument(buffer, parsedExt);
+    const content = await parseFileContent(buffer, parsedExt);
 
     if (!content || content.trim().length === 0) {
       return NextResponse.json(

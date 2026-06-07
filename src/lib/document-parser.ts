@@ -1,10 +1,19 @@
 /**
  * 解析 PDF 文件，提取纯文本
  */
+// CJS 模块在 Next.js ESM 中需要用特殊方式导入
+let _pdfParse: ((buf: Buffer) => Promise<{ text: string }>) | null = null;
+async function getPdfParse() {
+  if (!_pdfParse) {
+    const mod = await import("pdf-parse") as any;
+    _pdfParse = mod.default?.default || mod.default || mod;
+  }
+  return _pdfParse;
+}
+
 async function parsePDF(buffer: ArrayBuffer): Promise<string> {
-  const pdfParse = await import("pdf-parse");
-  // pdf-parse 需要 Node.js Buffer
-  const result = await pdfParse.default(Buffer.from(buffer));
+  const pdfParse = await getPdfParse();
+  const result = await pdfParse(Buffer.from(buffer));
   return result.text;
 }
 
