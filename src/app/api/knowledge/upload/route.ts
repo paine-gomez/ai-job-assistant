@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { chunkText } from "@/lib/document-parser";
+import { ocrImage, extractImagesFromPDF } from "@/lib/ocr";
 import { success, error } from "@/lib/api-response";
 
 // pdf-parse v1 直接导出函数，mammoth 是 CJS 模块
@@ -11,8 +12,26 @@ const mammoth = require("mammoth") as { extractRawText: (opts: { arrayBuffer: Ar
 
 async function parseFileContent(buffer: ArrayBuffer, fileType: string): Promise<string> {
   switch (fileType) {
-    case "pdf":
-      return (await pdfParse(Buffer.from(buffer))).text;
+    case "pdf": {
+      const pdfBuf = Buffer.from(buffer);
+      // 先尝试文字提取
+      const parsed = await pdfParse(pdfBuf);
+      const textContent = parsed.text?.trim();
+      if (textContent) return textContent;
+
+      // 文字为空 → 尝试 OCR（图片型 PDF）
+      const images = extractImagesFromPDF(pdfBuf);
+      if (images.length > 0) {
+        const ocrTexts: string[] = [];
+        for (const img of images) {
+          const text = await ocrImage(img);
+          if (text.trim()) ocrTexts.push(text);
+        }
+        if (ocrTexts.length > 0) return ocrTexts.join("\n\n");
+      }
+
+      return "";
+    }
     case "docx":
     case "doc":
       return (await mammoth.extractRawText({ arrayBuffer: buffer })).value;
