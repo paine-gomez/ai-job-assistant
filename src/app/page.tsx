@@ -16,14 +16,14 @@ const features = [
     icon: Zap,
     title: "JD 分析工具",
     desc: "粘贴招聘 JD，AI 一键提取公司、岗位、薪资、技能要求等结构化信息。省去逐字阅读的麻烦。",
-    href: "/tools",
+    href: "/jd",
     tags: ["自动化工具", "信息提取"],
   },
   {
     icon: Link2,
     title: "简历匹配工作流",
     desc: "上传简历 + 目标 JD，AI 从四个维度评分，指出优势与差距，给出优化和面试建议。",
-    href: "/tools",
+    href: "/match",
     tags: ["AI 工作流", "匹配引擎"],
   },
 ];

@@ -1,49 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { chunkText } from "@/lib/document-parser";
-import { ocrImage, extractImagesFromPDF } from "@/lib/ocr";
+import { extractTextFromFile, chunkText } from "@/lib/document-parser";
 import { success, error } from "@/lib/api-response";
+import { validateFile, ALL_EXTENSIONS } from "@/lib/file-utils";
 
-// pdf-parse v1 直接导出函数，mammoth 是 CJS 模块
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const mammoth = require("mammoth") as { extractRawText: (opts: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }> };
-
-async function parseFileContent(buffer: ArrayBuffer, fileType: string): Promise<string> {
-  switch (fileType) {
-    case "pdf": {
-      const pdfBuf = Buffer.from(buffer);
-      // 先尝试文字提取
-      const parsed = await pdfParse(pdfBuf);
-      const textContent = parsed.text?.trim();
-      if (textContent) return textContent;
-
-      // 文字为空 → 尝试 OCR（图片型 PDF）
-      const images = extractImagesFromPDF(pdfBuf);
-      if (images.length > 0) {
-        const ocrTexts: string[] = [];
-        for (const img of images) {
-          const text = await ocrImage(img);
-          if (text.trim()) ocrTexts.push(text);
-        }
-        if (ocrTexts.length > 0) return ocrTexts.join("\n\n");
-      }
-
-      return "";
-    }
-    case "docx":
-    case "doc":
-      return (await mammoth.extractRawText({ arrayBuffer: buffer })).value;
-    case "txt":
-    case "text":
-      return new TextDecoder("utf-8").decode(buffer).trim();
-    default:
-      throw new Error(`不支持的文件格式: ${fileType}`);
-  }
-}
-
-const ALLOWED_TYPES = ["pdf", "docx", "doc", "txt"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(request: Request) {
@@ -55,27 +15,25 @@ export async function POST(request: Request) {
       return NextResponse.json(error("请选择要上传的文件"), { status: 400 });
     }
 
-    // 校验文件格式
-    const ext = file.name.split(".").pop()?.toLowerCase() || "";
-    if (!ALLOWED_TYPES.includes(ext)) {
-      return NextResponse.json(
-        error(`不支持的文件格式 .${ext}，请上传 PDF、DOCX 或 TXT`),
-        { status: 400 }
-      );
+    // 使用共享校验工具
+    const validation = validateFile(file, ALL_EXTENSIONS, MAX_SIZE);
+    if (!validation.valid) {
+      return NextResponse.json(error(validation.error!), { status: 400 });
     }
 
-    // 校验文件大小
-    if (file.size > MAX_SIZE) {
-      return NextResponse.json(
-        error("文件大小不能超过 5MB"),
-        { status: 400 }
-      );
-    }
-
-    // 解析文件
+    // 使用统一的文本提取
     const buffer = await file.arrayBuffer();
-    const parsedExt = ext === "doc" ? "docx" : ext;
-    const content = await parseFileContent(buffer, parsedExt);
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+
+    let content: string;
+    try {
+      content = await extractTextFromFile(buffer, ext);
+    } catch (parseErr) {
+      return NextResponse.json(
+        error(parseErr instanceof Error ? parseErr.message : "文件解析失败"),
+        { status: 400 }
+      );
+    }
 
     if (!content || content.trim().length === 0) {
       return NextResponse.json(
@@ -92,7 +50,7 @@ export async function POST(request: Request) {
       data: {
         filename: file.name,
         content,
-        fileType: parsedExt,
+        fileType: ext,
         fileSize: file.size,
         chunkCount: chunks.length,
         chunks: {

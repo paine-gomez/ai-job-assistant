@@ -1,57 +1,79 @@
 /**
- * 解析 PDF 文件，提取纯文本
+ * 文档解析服务 — 统一的文件→文本提取 + 文本分块
+ *
+ * 所有 API 路由（upload / jd-analyze / extract-text）共用此模块。
  */
-// CJS 模块在 Next.js ESM 中需要用特殊方式导入
-let _pdfParse: ((buf: Buffer) => Promise<{ text: string }>) | null = null;
-async function getPdfParse() {
-  if (!_pdfParse) {
-    const mod = await import("pdf-parse") as any;
-    _pdfParse = mod.default?.default || mod.default || mod;
-  }
-  return _pdfParse;
-}
 
-async function parsePDF(buffer: ArrayBuffer): Promise<string> {
-  const pdfParse = await getPdfParse();
-  const result = await pdfParse(Buffer.from(buffer));
-  return result.text;
-}
+import { ocrImage, extractImagesFromPDF } from "@/lib/ocr";
 
-/**
- * 解析 DOCX 文件，提取纯文本
- */
-async function parseDOCX(buffer: ArrayBuffer): Promise<string> {
-  const mammoth = await import("mammoth");
-  const result = await mammoth.extractRawText({ arrayBuffer: buffer });
-  return result.value;
-}
+// CJS 模块在 Next.js ESM 中需要用 require
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const mammoth = require("mammoth") as {
+  extractRawText: (opts: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>;
+};
+
+const IMAGE_TYPES = ["png", "jpg", "jpeg", "webp", "bmp"];
 
 /**
- * 解析 TXT 文本
+ * 从文件 Buffer 中提取纯文本
+ *
+ * 支持格式：PDF（含扫描版 OCR 兜底）、DOCX/DOC、TXT、PNG/JPG 等图片
+ * 失败时抛出 Error，由调用方处理
  */
-function parseTXT(text: string): string {
-  return text.trim();
-}
-
-/**
- * 统一文档解析入口
- */
-export async function parseDocument(
+export async function extractTextFromFile(
   buffer: ArrayBuffer,
   fileType: string
 ): Promise<string> {
-  switch (fileType.toLowerCase()) {
-    case "pdf":
-      return parsePDF(buffer);
-    case "docx":
-    case "doc":
-      return parseDOCX(buffer);
-    case "txt":
-    case "text":
-      return parseTXT(new TextDecoder("utf-8").decode(buffer));
-    default:
-      throw new Error(`不支持的文件格式: ${fileType}`);
+  const ext = fileType.toLowerCase();
+
+  // ── 图片 → OCR ──
+  if (IMAGE_TYPES.includes(ext)) {
+    const text = await ocrImage(Buffer.from(buffer));
+    if (!text.trim()) {
+      throw new Error("未能从图片中识别出文字，请确认图片清晰度或改用文字粘贴");
+    }
+    return text.trim();
   }
+
+  // ── PDF ──
+  if (ext === "pdf") {
+    const pdfBuf = Buffer.from(buffer);
+    const result = await pdfParse(pdfBuf);
+    const text = result.text?.trim();
+    if (text) return text;
+
+    // 扫描版 PDF → OCR 兜底
+    const images = extractImagesFromPDF(pdfBuf);
+    if (images.length > 0) {
+      const ocrTexts: string[] = [];
+      for (const img of images) {
+        const t = await ocrImage(img);
+        if (t.trim()) ocrTexts.push(t.trim());
+      }
+      if (ocrTexts.length > 0) return ocrTexts.join("\n\n");
+    }
+
+    throw new Error("未能从 PDF 中提取文字，可能是扫描版 PDF，请截图后用图片格式上传");
+  }
+
+  // ── DOCX / DOC ──
+  if (ext === "docx" || ext === "doc") {
+    const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+    const text = result.value?.trim();
+    if (!text) throw new Error("未能从文档中提取文字");
+    return text;
+  }
+
+  // ── TXT ──
+  if (ext === "txt" || ext === "text") {
+    const text = new TextDecoder("utf-8").decode(buffer).trim();
+    if (!text) throw new Error("文件内容为空");
+    return text;
+  }
+
+  throw new Error(`不支持的文件格式: .${ext}`);
 }
 
 /**

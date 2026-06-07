@@ -37,7 +37,7 @@ export async function deepseekChat(
 
 /**
  * 调用 DeepSeek Chat API（流式）
- * 返回 ReadableStream，每块为文本字符串
+ * 返回 Response，body 为 SSE 流
  */
 export function deepseekChatStream(
   systemPrompt: string,
@@ -60,4 +60,18 @@ export function deepseekChatStream(
       stream: true,
     }),
   });
+}
+
+/**
+ * 从 AI 返回文本中解析 JSON
+ * 处理常见的 markdown 代码块包裹（```json ... ```）
+ */
+export function parseAIJson(text: string): unknown {
+  const jsonStr = text
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+
+  return JSON.parse(jsonStr);
 }
