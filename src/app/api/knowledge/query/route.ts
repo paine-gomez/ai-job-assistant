@@ -25,28 +25,41 @@ function extractKeywords(query: string): string[] {
 }
 
 /**
- * 检索相关文本块，匹配失败时返回最近文档的全部块
+ * 检索相关文本块 — 在所有文档中搜索，按关键词匹配度排序
  */
 async function findRelevantChunks(query: string, limit = 20) {
   const keywords = extractKeywords(query);
 
-  // 始终优先返回最近文档的块（兜底策略）
-  const recentDoc = await prisma.document.findFirst({
+  // 获取所有文档及其文本块
+  const docs = await prisma.document.findMany({
+    select: {
+      filename: true,
+      chunks: { orderBy: { chunkIndex: "asc" } },
+    },
     orderBy: { createdAt: "desc" },
-    select: { filename: true, chunks: { orderBy: { chunkIndex: "asc" } } },
   });
-  if (!recentDoc) return [];
-  if (recentDoc.chunks.length <= limit) {
-    return recentDoc.chunks.map((c) => ({ content: c.content, filename: recentDoc.filename }));
-  }
 
-  // 有足够关键词时做匹配排序
-  if (keywords.length > 0) {
-    const scored = recentDoc.chunks.map((chunk) => ({
+  if (docs.length === 0) return [];
+
+  // 收集所有文本块，标注来源文档
+  const allChunks = docs.flatMap((doc) =>
+    doc.chunks.map((chunk) => ({
       content: chunk.content,
-      filename: recentDoc.filename,
+      filename: doc.filename,
+    }))
+  );
+
+  // 总块数不超过 limit 时直接返回全部
+  if (allChunks.length <= limit) return allChunks;
+
+  // 有关键词时按匹配度排序
+  if (keywords.length > 0) {
+    const scored = allChunks.map((chunk) => ({
+      ...chunk,
       score: keywords.filter((kw) => chunk.content.includes(kw)).length,
     }));
+
+    // 有任意匹配 → 取 Top-N
     if (scored.some((s) => s.score > 0)) {
       return scored
         .sort((a, b) => b.score - a.score)
@@ -55,11 +68,8 @@ async function findRelevantChunks(query: string, limit = 20) {
     }
   }
 
-  // 无匹配时返回前 limit 个块
-  return recentDoc.chunks.slice(0, limit).map((c) => ({
-    content: c.content,
-    filename: recentDoc.filename,
-  }));
+  // 无关键词匹配时，按文档新旧 + 块顺序返回（优先新文档的前几块）
+  return allChunks.slice(0, limit);
 }
 
 export async function POST(request: Request) {

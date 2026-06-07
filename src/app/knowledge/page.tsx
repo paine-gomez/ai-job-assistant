@@ -280,11 +280,20 @@ export default function KnowledgePage() {
                 >
                   {msg.role === "user" ? (
                     <p>{msg.content}</p>
-                  ) : (
+                  ) : msg.content ? (
                     <div className="prose prose-sm prose-invert max-w-none">
-                      <ReactMarkdown>{msg.content || (loading ? "思考中..." : "")}</ReactMarkdown>
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      {loading && (
+                        <span className="inline-block w-2 h-4 ml-0.5 bg-indigo-400 animate-blink-cursor align-text-bottom" />
+                      )}
                     </div>
-                  )}
+                  ) : loading ? (
+                    <div className="flex items-center gap-1 py-1">
+                      <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce-dot" style={{ animationDelay: "0s" }} />
+                      <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce-dot" style={{ animationDelay: "0.2s" }} />
+                      <span className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce-dot" style={{ animationDelay: "0.4s" }} />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))}

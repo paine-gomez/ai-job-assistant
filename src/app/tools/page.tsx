@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { Loader2, Sparkles, FileSearch, Lightbulb, Target, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Loader2, Sparkles, FileSearch, Lightbulb, Target, AlertTriangle, CheckCircle2, Upload, X, FileText } from "lucide-react";
 
 interface JDAnalysis {
   company: string;
@@ -33,29 +33,54 @@ interface MatchResult {
 
 export default function ToolsPage() {
   // JD 分析
+  const [jdInputMode, setJdInputMode] = useState<"paste" | "upload">("paste");
   const [jdText, setJdText] = useState("");
+  const [jdFile, setJdFile] = useState<File | null>(null);
   const [jdResult, setJdResult] = useState<JDAnalysis | null>(null);
   const [jdLoading, setJdLoading] = useState(false);
+  const jdFileInputRef = useRef<HTMLInputElement>(null);
 
   // 简历匹配
   const [resumeText, setResumeText] = useState("");
   const [matchJdText, setMatchJdText] = useState("");
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
+  const [extractingResume, setExtractingResume] = useState(false);
+  const [extractingJD, setExtractingJD] = useState(false);
+  const resumeFileInputRef = useRef<HTMLInputElement>(null);
+  const matchJdFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleJDAnalyze = async () => {
-    if (!jdText.trim()) {
+    // 粘贴模式校验
+    if (jdInputMode === "paste" && !jdText.trim()) {
       toast.error("请先粘贴 JD 内容");
       return;
     }
+    // 上传模式校验
+    if (jdInputMode === "upload" && !jdFile) {
+      toast.error("请先上传 JD 文件");
+      return;
+    }
+
     setJdLoading(true);
     setJdResult(null);
     try {
-      const res = await fetch("/api/jd/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jdText }),
-      });
+      let res: Response;
+      if (jdInputMode === "upload" && jdFile) {
+        const formData = new FormData();
+        formData.append("file", jdFile);
+        res = await fetch("/api/jd/analyze", {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        res = await fetch("/api/jd/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jdText }),
+        });
+      }
+
       const json = await res.json();
       if (json.success) {
         setJdResult(json.data);
@@ -67,6 +92,104 @@ export default function ToolsPage() {
       toast.error("网络错误，请重试");
     } finally {
       setJdLoading(false);
+    }
+  };
+
+  // 处理文件选择
+  const handleJDFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    const allowed = ["pdf", "docx", "doc", "txt", "png", "jpg", "jpeg", "webp", "bmp"];
+    if (!allowed.includes(ext)) {
+      toast.error(`不支持 .${ext} 格式，支持 PDF、DOCX、TXT、PNG、JPG 等`);
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("文件大小不能超过 10MB");
+      return;
+    }
+    setJdFile(file);
+    setJdResult(null);
+    // 重置 input 以便重复选择同一文件
+    e.target.value = "";
+  };
+
+  // 清除已选文件
+  const clearJDFile = () => {
+    setJdFile(null);
+    if (jdFileInputRef.current) jdFileInputRef.current.value = "";
+  };
+
+  // 简历文件 → 提取文字填入文本框
+  const handleResumeFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    const allowed = ["pdf", "docx", "doc", "txt", "png", "jpg", "jpeg", "webp", "bmp"];
+    if (!allowed.includes(ext)) {
+      toast.error(`不支持 .${ext} 格式`);
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("文件大小不能超过 10MB");
+      return;
+    }
+
+    setExtractingResume(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/extract-text", { method: "POST", body: formData });
+      const json = await res.json();
+      if (json.success) {
+        setResumeText((prev) => prev.trim() ? prev + "\n\n" + json.data.text : json.data.text);
+        toast.success(`已提取: ${file.name}`);
+      } else {
+        toast.error(json.error || "提取失败");
+      }
+    } catch {
+      toast.error("提取失败，请检查网络");
+    } finally {
+      setExtractingResume(false);
+    }
+  };
+
+  // JD 文件 → 提取文字填入文本框
+  const handleMatchJDFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    const allowed = ["pdf", "docx", "doc", "txt", "png", "jpg", "jpeg", "webp", "bmp"];
+    if (!allowed.includes(ext)) {
+      toast.error(`不支持 .${ext} 格式`);
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("文件大小不能超过 10MB");
+      return;
+    }
+
+    setExtractingJD(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/extract-text", { method: "POST", body: formData });
+      const json = await res.json();
+      if (json.success) {
+        setMatchJdText((prev) => prev.trim() ? prev + "\n\n" + json.data.text : json.data.text);
+        toast.success(`已提取: ${file.name}`);
+      } else {
+        toast.error(json.error || "提取失败");
+      }
+    } catch {
+      toast.error("提取失败，请检查网络");
+    } finally {
+      setExtractingJD(false);
     }
   };
 
@@ -120,17 +243,97 @@ export default function ToolsPage() {
         </TabsList>
 
         {/* JD 分析 Tab */}
-        <TabsContent value="jd" className="mt-6 space-y-6">
-          <Textarea
-            placeholder="在这里粘贴招聘 JD 内容...&#10;&#10;例如复制拉勾/BOSS直聘上的职位描述"
-            value={jdText}
-            onChange={(e) => setJdText(e.target.value)}
-            rows={8}
-            className="bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-600 resize-none"
-          />
+        <TabsContent value="jd" className="mt-6 space-y-4">
+          {/* 输入方式切换 */}
+          <div className="flex gap-1 p-1 rounded-lg bg-zinc-900 w-fit">
+            <button
+              onClick={() => { setJdInputMode("paste"); setJdResult(null); }}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                jdInputMode === "paste"
+                  ? "bg-zinc-700 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              粘贴文本
+            </button>
+            <button
+              onClick={() => { setJdInputMode("upload"); setJdResult(null); }}
+              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                jdInputMode === "upload"
+                  ? "bg-zinc-700 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              上传文件
+            </button>
+          </div>
+
+          {/* 粘贴模式 — 文本输入框 */}
+          {jdInputMode === "paste" && (
+            <Textarea
+              placeholder={"在这里粘贴招聘 JD 内容...\n\n例如复制拉勾/BOSS直聘上的职位描述"}
+              value={jdText}
+              onChange={(e) => { setJdText(e.target.value); setJdResult(null); }}
+              rows={8}
+              className="bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-600 resize-none"
+            />
+          )}
+
+          {/* 上传模式 — 文件上传区 */}
+          {jdInputMode === "upload" && (
+            <div className="space-y-3">
+              {jdFile ? (
+                // 已选文件
+                <div className="flex items-center gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-4">
+                  <FileText className="h-8 w-8 text-indigo-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white truncate">{jdFile.name}</p>
+                    <p className="text-xs text-zinc-500">
+                      {jdFile.size > 1024 * 1024
+                        ? `${(jdFile.size / (1024 * 1024)).toFixed(1)} MB`
+                        : `${Math.round(jdFile.size / 1024)} KB`}
+                      {" · "}
+                      {jdFile.name.split(".").pop()?.toUpperCase()}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-zinc-500 hover:text-red-400"
+                    onClick={clearJDFile}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                // 上传按钮
+                <label className="flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-zinc-700 p-10 text-center cursor-pointer hover:border-indigo-500/50 transition-colors">
+                  <Upload className="h-10 w-10 text-zinc-500" />
+                  <div>
+                    <p className="text-sm text-zinc-400">点击上传 JD 文件</p>
+                    <p className="text-xs text-zinc-600 mt-1">
+                      支持 PDF、DOCX、TXT、PNG、JPG 等格式 · 最大 10MB
+                    </p>
+                  </div>
+                  <input
+                    ref={jdFileInputRef}
+                    type="file"
+                    accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.webp,.bmp"
+                    className="hidden"
+                    onChange={handleJDFileSelect}
+                  />
+                </label>
+              )}
+            </div>
+          )}
+
           <Button
             onClick={handleJDAnalyze}
-            disabled={jdLoading || !jdText.trim()}
+            disabled={
+              jdLoading ||
+              (jdInputMode === "paste" && !jdText.trim()) ||
+              (jdInputMode === "upload" && !jdFile)
+            }
             className="w-full bg-indigo-600 hover:bg-indigo-500"
           >
             {jdLoading ? (
@@ -197,9 +400,27 @@ export default function ToolsPage() {
         {/* 简历匹配 Tab */}
         <TabsContent value="match" className="mt-6 space-y-6">
           <div>
-            <label className="text-sm font-medium text-zinc-400 mb-2 block">你的简历</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-zinc-400">你的简历</label>
+              <label className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer transition-colors">
+                {extractingResume ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Upload className="h-3 w-3" />
+                )}
+                {extractingResume ? "提取中..." : "上传文件"}
+                <input
+                  ref={resumeFileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.webp,.bmp"
+                  className="hidden"
+                  onChange={handleResumeFileUpload}
+                  disabled={extractingResume}
+                />
+              </label>
+            </div>
             <Textarea
-              placeholder="粘贴你的简历内容，或直接输入关键信息（教育背景、技能、项目经历等）"
+              placeholder="粘贴简历内容，或点击右上角「上传文件」从 PDF/图片中提取文字"
               value={resumeText}
               onChange={(e) => setResumeText(e.target.value)}
               rows={6}
@@ -207,9 +428,27 @@ export default function ToolsPage() {
             />
           </div>
           <div>
-            <label className="text-sm font-medium text-zinc-400 mb-2 block">目标 JD</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-zinc-400">目标 JD</label>
+              <label className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 cursor-pointer transition-colors">
+                {extractingJD ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Upload className="h-3 w-3" />
+                )}
+                {extractingJD ? "提取中..." : "上传文件"}
+                <input
+                  ref={matchJdFileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg,.webp,.bmp"
+                  className="hidden"
+                  onChange={handleMatchJDFileUpload}
+                  disabled={extractingJD}
+                />
+              </label>
+            </div>
             <Textarea
-              placeholder="粘贴目标岗位的 JD 内容"
+              placeholder="粘贴 JD 内容，或点击右上角「上传文件」从 PDF/图片中提取文字"
               value={matchJdText}
               onChange={(e) => setMatchJdText(e.target.value)}
               rows={6}
