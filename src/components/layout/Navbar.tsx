@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 const links = [
   { href: "/", label: "首页" },
@@ -24,18 +23,17 @@ export function Navbar() {
 
         <nav className="flex items-center gap-1">
           {links.map((link) => (
-            <Button
+            <Link
               key={link.href}
-              variant="ghost"
-              size="sm"
+              href={link.href}
               className={cn(
-                "text-zinc-400 hover:text-white",
+                "inline-flex items-center justify-center rounded-lg px-2.5 py-1 text-sm font-medium transition-colors",
+                "text-zinc-400 hover:text-white hover:bg-white/5",
                 pathname === link.href && "text-white bg-white/10"
               )}
-              render={<Link href={link.href} />}
             >
               {link.label}
-            </Button>
+            </Link>
           ))}
         </nav>
       </div>

@@ -63,9 +63,12 @@ export default function HomePage() {
                 </Badge>
               ))}
             </div>
-            <Button variant="outline" size="sm" className="mt-4 w-full" render={<Link href={f.href} />}>
+            <Link
+              href={f.href}
+              className="inline-flex h-7 items-center justify-center rounded-lg border border-zinc-700 bg-transparent px-2.5 text-[0.8rem] font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors mt-4 w-full"
+            >
               开始使用 →
-            </Button>
+            </Link>
           </Card>
         ))}
       </div>
